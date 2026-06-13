@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ForensiX — Metadata Extractor</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #0a0c10;
+    --panel:    #0f1218;
+    --border:   #1e2d40;
+    --accent:   #00e5ff;
+    --green:    #00ff9c;
+    --red:      #ff4f5e;
+    --muted:    #3a4a5c;
+    --text:     #c8d8e8;
+    --dim:      #5a6e82;
+    --mono:     'Share Tech Mono', monospace;
+    --ui:       'Rajdhani', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--ui);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* scanlines */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      to bottom, transparent 0, transparent 3px,
+      rgba(0,229,255,.012) 3px, rgba(0,229,255,.012) 4px
+    );
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    position: relative; z-index: 10;
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex; align-items: center; gap: 16px;
+    background: linear-gradient(90deg, #0a1520, var(--bg));
+  }
+
+  .logo-box {
+    width: 40px; height: 40px;
+    border: 2px solid var(--accent); border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 14px; color: var(--accent);
+    box-shadow: 0 0 14px rgba(0,229,255,.3);
+  }
+
+  header h1 {
+    font-size: 24px; font-weight: 700; letter-spacing: 4px;
+    color: var(--accent);
+    text-shadow: 0 0 16px rgba(0,229,255,.5);
+  }
+
+  header small {
+    display: block;
+    font-family: var(--mono); font-size: 10px;
+    color: var(--dim); letter-spacing: 2px;
+  }
+
+  .badge {
+    margin-left: auto;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--green); border: 1px solid var(--green);
+    padding: 4px 10px; border-radius: 3px;
+    animation: blink 2.5s infinite;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* ── Layout ── */
+  main {
+    position: relative; z-index: 5;
+    flex: 1;
+    display: grid;
+    grid-template-columns: 270px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 28px 32px;
+    gap: 0;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    padding-right: 28px;
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 22px;
+  }
+
+  .s-label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 3px;
+    color: var(--dim); text-transform: uppercase; margin-bottom: 6px;
+  }
+
+  /* drop zone */
+  .drop-zone {
+    border: 2px dashed var(--muted);
+    border-radius: 8px;
+    padding: 26px 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .25s;
+  }
+  .drop-zone:hover, .drop-zone.over {
+    border-color: var(--accent);
+    background: rgba(0,229,255,.04);
+    box-shadow: inset 0 0 22px rgba(0,229,255,.05);
+  }
+  .drop-zone .icon { font-size: 30px; margin-bottom: 8px; }
+  .drop-zone p { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .drop-zone .fname { margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--accent); word-break: break-all; }
+  #file-input { display: none; }
+
+  /* format pills */
+  .pills { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .pill {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-family: var(--mono); font-size: 11px; color: var(--dim);
+    display: flex; align-items: center; gap: 6px;
+    transition: all .2s;
+  }
+  .pill .dot { width:6px; height:6px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+  .pill.active { border-color: var(--accent); color: var(--accent); }
+  .pill.active .dot { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
+
+  /* buttons */
+  .btn {
+    width: 100%; padding: 12px;
+    border: none; border-radius: 6px;
+    font-family: var(--ui); font-size: 14px; font-weight: 700;
+    letter-spacing: 1.5px; cursor: pointer;
+    transition: all .2s; position: relative; overflow: hidden;
+  }
+  .btn-extract { background: var(--accent); color: #000; box-shadow: 0 0 18px rgba(0,229,255,.3); }
+  .btn-extract:hover { box-shadow: 0 0 30px rgba(0,229,255,.55); }
+  .btn-extract:disabled { background: var(--muted); color: var(--dim); box-shadow: none; cursor: not-allowed; }
+  .btn-records { background: transparent; border: 1px solid var(--green); color: var(--green); }
+  .btn-records:hover { box-shadow: 0 0 16px rgba(0,255,156,.2); }
+  .btn-clear   { background: transparent; border: 1px solid var(--muted); color: var(--dim); font-size: 13px; padding: 9px; }
+
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(0,229,255,.5)} 70%{box-shadow:0 0 0 12px rgba(0,229,255,0)} 100%{box-shadow:0 0 0 0 rgba(0,229,255,0)} }
+  .btn-extract.loading { animation: pulse 1s infinite; }
+
+  /* stats */
+  .stats { display: flex; gap: 14px; font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .stat-val { color: var(--accent); margin-left: 4px; }
+
+  /* ── Content ── */
+  .content { padding-left: 28px; display: flex; flex-direction: column; gap: 18px; }
+
+  /* loading bar */
+  #progress {
+    height: 2px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    transition: width .35s; border-radius: 1px; display: none;
+  }
+
+  /* tabs */
+  .tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .tab {
+    padding: 10px 20px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px;
+    color: var(--dim); cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: all .2s; text-transform: uppercase;
+  }
+  .tab.active { color: var(--accent); border-color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* GPS card */
+  .gps-card {
+    background: linear-gradient(135deg, rgba(0,255,156,.07), rgba(0,229,255,.03));
+    border: 1px solid rgba(0,255,156,.25);
+    border-radius: 8px; padding: 14px 18px;
+    font-family: var(--mono); font-size: 13px;
+    display: none;
+  }
+  .gps-card.show { display: block; }
+  .gps-head { color: var(--green); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .gps-coords { margin-bottom: 10px; line-height: 1.8; }
+  .map-btn {
+    display: inline-block; padding: 7px 16px;
+    background: var(--green); color: #000;
+    border-radius: 4px; font-weight: 700; font-family: var(--ui);
+    font-size: 13px; text-decoration: none; letter-spacing: 1px;
+  }
+  .map-btn:hover { box-shadow: 0 0 14px rgba(0,255,156,.5); }
+
+  /* terminal */
+  .terminal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex; flex-direction: column;
+    min-height: 400px; overflow: hidden; flex: 1;
+  }
+  .tbar {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,.35);
+    display: flex; align-items: center; gap: 7px;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.r{background:#ff5f57} .dot.y{background:#febc2e} .dot.g{background:#28c840}
+  .ttitle { margin-left: 8px; font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: 1px; }
+
+  .tbody {
+    padding: 18px 20px;
+    font-family: var(--mono); font-size: 13px;
+    line-height: 1.9; color: var(--text);
+    overflow-y: auto; flex: 1;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .tbody:empty::before {
+    content: "// Waiting for file...\n// Select a file and click EXTRACT METADATA";
+    color: var(--dim);
+  }
+
+  /* colored tokens */
+  .k { color: var(--accent); }
+  .v { color: var(--text); }
+  .g { color: var(--green); }
+  .w { color: #febc2e; }
+  .e { color: var(--red); }
+  .d { color: var(--dim); }
+
+  /* ── footer ── */
+  footer {
+    position: relative; z-index: 5;
+    border-top: 1px solid var(--border);
+    padding: 10px 32px;
+    font-family: var(--mono); font-size: 11px; color: var(--dim);
+    display: flex; justify-content: space-between;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
+
+  /* responsive */
+  @media(max-width:720px){
+    main { grid-template-columns: 1fr; padding: 16px; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border); padding-right: 0; padding-bottom: 22px; }
+    .content { padding-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo-box">FX</div>
+  <div>
+    <h1>FORENSIX</h1>
+    <small>METADATA EXTRACTION SYSTEM v1.0</small>
+  </div>
+  <div class="badge">● SYSTEM ONLINE</div>
+</header>
+
+<!-- MAIN -->
+<main>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div>
+      <div class="s-label">Target File</div>
+      <div class="drop-zone" id="dropzone" onclick="document.getElementById('file-input').click()">
+        <div class="icon">🗂</div>
+        <p>Drop file here<br/>or click to browse</p>
+        <div class="fname" id="fname"></div>
+      </div>
+      <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.pdf,.docx"/>
+    </div>
+
+    <div>
+      <div class="s-label">Supported Formats</div>
+      <div class="pills">
+        <div class="pill" id="p-jpg"><span class="dot"></span>.JPG / .JPEG</div>
+        <div class="pill" id="p-png"><span class="dot"></span>.PNG</div>
+        <div class="pill" id="p-pdf"><span class="dot"></span>.PDF</div>
+        <div class="pill" id="p-docx"><span class="dot"></span>.DOCX</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-extract" id="btnExtract" disabled onclick="doExtract()">⬡ EXTRACT METADATA</button>
+      <button class="btn btn-records" onclick="doViewRecords()">▤ VIEW SAVED RECORDS</button>
+      <button class="btn btn-clear"   onclick="doClear()">✕ CLEAR OUTPUT</button>
+    </div>
+
+    <div class="stats">
+      <span>Records:<span class="stat-val" id="statRec">0</span></span>
+      <span>Fields:<span class="stat-val" id="statFields">—</span></span>
+    </div>
+
+  </aside>
+
+  <!-- CONTENT -->
+  <section class="content">
+
+    <div id="progress"></div>
+
+    <div class="tabs">
+      <div class="tab active" id="tab-out" onclick="switchTab('out')">OUTPUT</div>
+      <div class="tab"        id="tab-rec" onclick="switchTab('rec')">RECORDS DB</div>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div id="panel-out" style="display:flex;flex-direction:column;gap:14px">
+
+      <div class="gps-card" id="gpsCard">
+        <div class="gps-head">📡 GPS Location Detected</div>
+        <div class="gps-coords" id="gpsCoords"></div>
+        <a class="map-btn" id="gpsLink" href="#" target="_blank">Open in Google Maps ↗</a>
+      </div>
+
+      <div class="terminal">
+        <div class="tbar">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <span class="ttitle" id="ttitle">TERMINAL — NO FILE LOADED</span>
+        </div>
+        <div class="tbody" id="output"></div>
+      </div>
+
+    </div>
+
+    <!-- RECORDS PANEL -->
+    <div id="panel-rec" style="display:none;flex-direction:column;gap:14px">
+      <div class="terminal">
+        <div class="tbar">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <span class="ttitle">DATABASE — metadata_records</span>
+        </div>
+        <div class="tbody" id="recOutput"><span class="d">// Click "VIEW SAVED RECORDS" to load entries.</span></div>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<footer>
+  <span>ForensiX Metadata Extractor · Minor Project</span>
+  <span id="clock"></span>
+</footer>
+
+<script>
+let selectedFile = null;
+
+/* clock */
+setInterval(()=>{ document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-IN'); }, 1000);
+
+/* file input */
+document.getElementById('file-input').addEventListener('change', e => pickFile(e.target.files[0]));
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); pickFile(e.dataTransfer.files[0]); });
+
+function pickFile(f){
+  if(!f) return;
+  selectedFile = f;
+  const ext = f.name.split('.').pop().toLowerCase();
+  document.getElementById('fname').textContent = f.name;
+  document.getElementById('btnExtract').disabled = false;
+  document.getElementById('ttitle').textContent = 'TERMINAL — ' + f.name.toUpperCase();
+  document.getElementById('output').innerHTML = `<span class="d">File loaded: ${f.name} (${fmtSize(f.size)})\nClick EXTRACT METADATA to begin...</span>`;
+  ['jpg','png','pdf','docx'].forEach(t => document.getElementById('p-'+t).classList.remove('active'));
+  const m = {jpg:'jpg',jpeg:'jpg',png:'png',pdf:'pdf',docx:'docx'};
+  if(m[ext]) document.getElementById('p-'+m[ext]).classList.add('active');
+}
+
+function fmtSize(b){ return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
+
+/* extract */
+async function doExtract(){
+  if(!selectedFile) return;
+  switchTab('out');
+  document.getElementById('gpsCard').classList.remove('show');
+  document.getElementById('statFields').textContent = '—';
+  document.getElementById('output').innerHTML = '<span class="d">Sending file to backend...</span>';
+  document.getElementById('btnExtract').disabled = true;
+  document.getElementById('btnExtract').classList.add('loading');
+  startBar();
+
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+
+  try {
+    const res  = await fetch('/extract', { method:'POST', body: fd });
+    const data = await res.json();
+    stopBar();
+    document.getElementById('btnExtract').disabled = false;
+    document.getElementById('btnExtract').classList.remove('loading');
+
+    if(data.error){
+      document.getElementById('output').innerHTML = `<span class="e">ERROR: ${data.error}</span>`;
+      return;
+    }
+
+    renderOutput(data);
+    fetchRecordCount();
+
+  } catch(err){
+    stopBar();
+    document.getElementById('btnExtract').disabled = false;
+    document.getElementById('btnExtract').classList.remove('loading');
+    document.getElementById('output').innerHTML = `<span class="e">Connection error: ${err.message}\nMake sure Flask server is running (python app.py)</span>`;
+  }
+}
+
+function renderOutput(data){
+  const hdr =
+`<span class="d">╔══════════════════════════════════════════╗
+║  FORENSIX EXTRACTION REPORT              ║
+║  File : ${pad(selectedFile.name,34)}║
+║  Type : ${pad(data.type||'?',34)}║
+║  Date : ${pad(new Date().toLocaleString('en-IN'),34)}║
+╚══════════════════════════════════════════╝</span>\n\n`;
+
+  const typeHead = `<span class="k">── ${data.type} METADATA `;
+  let lines = [hdr, typeHead + '─'.repeat(Math.max(0,40 - data.type.length - 13)) + '</span>'];
+
+  const fields = data.fields || {};
+  const keys = Object.keys(fields);
+  if(!keys.length){
+    lines.push('<span class="w">No metadata found.</span>');
+  } else {
+    keys.forEach(k => {
+      lines.push(`<span class="k">${pad(k,30)}</span> <span class="v">${fields[k]}</span>`);
+    });
+  }
+
+  document.getElementById('statFields').textContent = keys.length;
+
+  if(data.gps && data.gps.lat !== null){
+    const {lat,lon} = data.gps;
+    const url = `https://www.google.com/maps?q=${lat},${lon}`;
+    lines.push(`\n<span class="g">── GPS LOCATION ──────────────────────────\nLatitude : ${lat.toFixed(6)}\nLongitude: ${lon.toFixed(6)}</span>`);
+    showGPS(lat, lon, url);
+  }
+
+  document.getElementById('output').innerHTML = lines.join('\n');
+  showToast('Metadata saved to database ✓');
+}
+
+function showGPS(lat,lon,url){
+  document.getElementById('gpsCoords').innerHTML =
+    `<span class="k">Latitude :</span>  ${lat.toFixed(6)}\n<span class="k">Longitude:</span>  ${lon.toFixed(6)}`;
+  document.getElementById('gpsLink').href = url;
+  document.getElementById('gpsCard').classList.add('show');
+}
+
+/* view records */
+async function doViewRecords(){
+  switchTab('rec');
+  document.getElementById('recOutput').innerHTML = '<span class="d">Loading records...</span>';
+  try {
+    const res  = await fetch('/records');
+    const rows = await res.json();
+    if(!rows.length){
+      document.getElementById('recOutput').innerHTML = '<span class="d">// No records found in database.</span>';
+      return;
+    }
+    document.getElementById('recOutput').innerHTML = rows.map(r =>
+`<span class="k">──────────────────────────────────────────</span>
+<span class="k">ID        </span> <span class="v">${r.id}</span>
+<span class="k">File      </span> <span class="v">${r.filename}</span>
+<span class="k">Type      </span> <span class="v">${r.filetype}</span>
+<span class="k">Latitude  </span> <span class="v">${r.gps_lat != null ? parseFloat(r.gps_lat).toFixed(6) : 'N/A'}</span>
+<span class="k">Longitude </span> <span class="v">${r.gps_lon != null ? parseFloat(r.gps_lon).toFixed(6) : 'N/A'}</span>
+<span class="k">Date      </span> <span class="v">${r.date_extracted}</span>
+`).join('');
+  } catch(err){
+    document.getElementById('recOutput').innerHTML = `<span class="e">Could not load records: ${err.message}</span>`;
+  }
+}
+
+async function fetchRecordCount(){
+  try {
+    const res  = await fetch('/records');
+    const rows = await res.json();
+    document.getElementById('statRec').textContent = rows.length;
+  } catch(e){}
+}
+
+/* tabs */
+function switchTab(t){
+  document.getElementById('panel-out').style.display = t==='out' ? 'flex' : 'none';
+  document.getElementById('panel-rec').style.display = t==='rec' ? 'flex' : 'none';
+  document.getElementById('tab-out').classList.toggle('active', t==='out');
+  document.getElementById('tab-rec').classList.toggle('active', t==='rec');
+}
+
+/* clear */
+function doClear(){
+  document.getElementById('output').innerHTML = '';
+  document.getElementById('gpsCard').classList.remove('show');
+  document.getElementById('statFields').textContent = '—';
+  document.getElementById('fname').textContent = '';
+  document.getElementById('ttitle').textContent = 'TERMINAL — NO FILE LOADED';
+  ['jpg','png','pdf','docx'].forEach(t => document.getElementById('p-'+t).classList.remove('active'));
+  selectedFile = null;
+  document.getElementById('btnExtract').disabled = true;
+  document.getElementById('file-input').value = '';
+}
+
+/* progress bar */
+let barInt;
+function startBar(){
+  const b = document.getElementById('progress'); b.style.display='block'; b.style.width='0%'; let w=0;
+  barInt = setInterval(()=>{ w=Math.min(w+Math.random()*8,88); b.style.width=w+'%'; },100);
+}
+function stopBar(){
+  clearInterval(barInt);
+  const b = document.getElementById('progress'); b.style.width='100%';
+  setTimeout(()=>{ b.style.display='none'; b.style.width='0%'; },500);
+}
+
+/* toast */
+function showToast(msg){
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:36px;right:28px;background:#00ff9c;color:#000;padding:9px 16px;border-radius:5px;font-family:monospace;font-size:12px;z-index:9999;box-shadow:0 0 16px rgba(0,255,156,.4);transition:opacity .4s';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; setTimeout(()=>t.remove(),400); }, 2400);
+}
+
+/* pad helper */
+function pad(s,l){ return (String(s)+'                                        ').slice(0,l); }
+
+/* init record count */
+fetchRecordCount();
+</script>
+</body>
+</html>
