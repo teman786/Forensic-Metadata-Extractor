@@ -1,0 +1,7 @@
+Flask
+flask-cors
+exifread
+Pillow
+PyPDF2
+python-docx
+gunicorn
