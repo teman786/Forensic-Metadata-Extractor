@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<h1>Analysis Result</h1>
+
+<p>File: {{ filename }}</p>
+<p>MD5: {{ md5 }}</p>
+<p>SHA256: {{ sha256 }}</p>
+<p>Status: {{ status }}</p>
+
+<h3>Metadata</h3>
+<pre>{{ metadata }}</pre>
+
+{% if links|length > 0 %}
+<h3>⚠️ Suspicious Links</h3>
+{% for l in links %}
+<p>{{ l }}</p>
+{% endfor %}
+{% endif %}
+
+{% if lat and lon %}
+<h3>📍 Location</h3>
+<a href="https://www.google.com/maps?q={{lat}},{{lon}}" target="_blank">
+Open in Google Maps
+</a>
+{% endif %}
+
+</body>
+</html>
