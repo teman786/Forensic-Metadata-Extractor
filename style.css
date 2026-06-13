@@ -1,0 +1,42 @@
+body {
+    background: #0a0a0a;
+    color: #00ffcc;
+    font-family: monospace;
+    text-align: center;
+}
+
+.container {
+    margin: 30px auto;
+    width: 80%;
+}
+
+h1 {
+    text-shadow: 0 0 10px #00ffcc;
+}
+
+.card {
+    border: 1px solid #00ffcc;
+    padding: 15px;
+    margin: 15px;
+    border-radius: 10px;
+    background: #111;
+    box-shadow: 0 0 10px #00ffcc33;
+}
+
+.warning {
+    border-color: red;
+    color: red;
+}
+
+pre {
+    text-align: left;
+    overflow-x: auto;
+}
+
+button {
+    padding: 10px 20px;
+    background: #00ffcc;
+    border: none;
+    cursor: pointer;
+    margin-top: 10px;
+}
